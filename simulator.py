@@ -1,19 +1,15 @@
-import scipy
+from typing import List, Any
+
 import heapq
 
-class Simulation(object):
+def simulate(event_generators):
+    pq: List[Any] = []
+    for event in event_generators:
+        offset, result = next(event)
+        heapq.heappush(pq, (offset, result, event))
 
-    def __init__(self, event_generators) -> None:
-        super().__init__()
-        self.pq = []
-        for event in event_generators:
-            offset, result = next(event)
-            heapq.heappush(self.pq, (offset, result, event))
-
-    def __next__(self):
-        timestamp, result, event = heapq.heappop(self.pq)
+    while True:
+        timestamp, result, event = heapq.heappop(pq)
         offset, next_result = next(event)
-        heapq.heappush(self.pq, (timestamp + offset, next_result, event))
+        heapq.heappush(pq, (timestamp + offset, next_result, event))
         yield (timestamp, result)
-
-

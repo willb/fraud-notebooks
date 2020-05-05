@@ -27,9 +27,9 @@ If you want to experiment with the data generator, you'll want to use your own c
     
 ### Install the notebooks and dependencies
 
-1.  Clone this repository:  `git clone https://github.com/willb/data-sketching-and-other-magic-tricks/`
-    - tip:  if you don't have `git` installed, you can also [download an archive of this repository](https://github.com/willb/python-data-notebooks/archive/master.zip)
-2.  Change to this repository's directory:  `cd python-data-notebooks`
+1.  Clone this repository:  `git clone https://github.com/willb/fraud-notebooks/`
+    - tip:  if you don't have `git` installed, you can also [download an archive of this repository](https://github.com/willb/fraud-notebooks/archive/develop.zip)
+2.  Change to this repository's directory:  `cd fraud-notebooks`
 3.  Install the dependencies:  `pipenv install`
 4.  Run the notebooks:  `pipenv run jupyter notebook`
 

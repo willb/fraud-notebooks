@@ -6,3 +6,4 @@ altair==4.1.0
 vega==3.2.0
 pyarrow==0.16.0
 cloudpickle==1.2.1
+xgboost==1.1.0

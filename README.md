@@ -1,9 +1,9 @@
 # fraud-notebooks
 
-These notebooks accompany several talks and workshops developed by @willb and @sophwats.
+These notebooks accompany several talks and workshops developed by [Will Benton](https://github.com/willb) and [Sophie Watson](https://github.com/sophwats).
 
-- Our workshop _From Statistics to Serverless:  Intelligent Applications on OpenShift 4_ was delivered at Red Hat Summit and IBM Think in 2020.  Slides are available [as a PDF](slides.pdf) or [as a movie](slides.m4v).  The rest of the instructions in this README will cover getting the basic application running.
-- Our GTC 2021 talk "Fighting Fraud With One App In Many Ways: GPU-Accelerated End MLOps on Kubernetes" built up this application in two versions with RAPIDS.ai.  Notebooks from that talk are [on this branch](https://github.com/willb/fraud-notebooks/tree/rapids).
+- Our workshop "From Statistics to Serverless:  Intelligent Applications on OpenShift 4" was delivered at Red Hat Summit and IBM Think in 2020.  Slides are available [as a PDF](slides.pdf) or [as a movie](slides.m4v).  The rest of the instructions in this README will cover getting the basic application running.
+- Our GTC 2021 talk "Fighting Fraud With One App In Many Ways: GPU-Accelerated End MLOps on Kubernetes" built up a similar fraud-detection application in two versions using RAPIDS.ai.  Notebooks from that talk are [on this branch](https://github.com/willb/fraud-notebooks/tree/rapids).
 
 In order to build and run a model service, you'll need an OpenShift cluster, but you can experiment with the notebooks on your own time.  Here's how:
 

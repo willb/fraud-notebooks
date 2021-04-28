@@ -7,3 +7,7 @@ vega==3.2.0
 pyarrow==0.16.0
 cloudpickle==1.2.1
 xgboost==1.1.0
+
+# Pending https://github.com/slundberg/shap/issues/1215
+# For this version of xgboost you have to install latest shap
+-e git+https://github.com/slundberg/shap.git

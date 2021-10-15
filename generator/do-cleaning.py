@@ -1,90 +1,138 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Loading data
+# Copyright (c) 2020–2021, NVIDIA Corporation.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-# In[1]:
+import argparse
+import os
+import sys
+import re
+import json
 
+options = {}
 
-from pyspark.sql import SparkSession
-session = SparkSession.builder.getOrCreate()
+WORKLOAD_VERSION = '0.1'
 
-import time, timeit
-output_ts = int(time.time())
+def register_options(**kwargs):
+    global options
+    for k, v in kwargs.items():
+        options[k] = v
 
-df = session.read.parquet("fraud-256m-partitioned2.parquet")
+def _register_session(s):
+    global session
+    session = s
 
+def read_df(session, fn):
+    global options
+    kwargs = {}
+    input_kind = options["input_kind"]
 
-# ## Cleaning data
-# 
-# These data are mostly clean but we need to add a new field for transaction interarrival time.
+    if input_kind == "csv":
+        kwargs["header"] = True
+    return getattr(session.read, input_kind)("%s.%s" % (fn, input_kind), **kwargs)
 
-# In[2]:
-
-
-df.printSchema()
-
-
-# In[3]:
-
-
-import pyspark.sql.window as W
-import pyspark.sql.functions as F
-
-interarrival_spec = W.Window.partitionBy("user_id").orderBy("timestamp")
-overall_spec = W.Window.orderBy("timestamp")
-
-df_interarrival = df.withColumn(
-    "previous_timestamp", 
-    F.lag(df["timestamp"]).over(
-        interarrival_spec
-    )
-).withColumn(
-    "interarrival",
-    (F.col("timestamp") - F.col("previous_timestamp")).cast("int")
-)
-
-
-# In[8]:
-
-
-if False:
-
-    split_point = int(df_interarrival.count() * 0.7)
-
-    df_interarrival_split = df_interarrival.withColumn(
-        "amount_rank_user_rolling",
-        (F.rank().over(rollingUserSpec) / 
-         F.count("user_id").over(rollingUserSpec)).cast("float") 
-    ).withColumn("transactions_in_rolling_window",
-        F.count("user_id").over(rollingUserSpec)   
-    )
+def write_df(df, name):
+    global options
+    output_kind = options["output_kind"]
+    output_mode = options["output_mode"]
+    output_prefix = options["output_prefix"]
     
-    df_interarrival_train = df_interarrival_split.where(F.col("observation_number") <= split_point)
-    df_interarrival_test = df_interarrival_split.where(F.col("observation_number") > split_point)
+    name = "%s.%s" % (name, output_kind)
+    if output_prefix != "":
+        name = "%s%s" % (output_prefix, name)
+    kwargs = {}
+    if output_kind == "csv":
+        kwargs["header"] = True
+    getattr(df.write.mode(output_mode), output_kind)(name, **kwargs)
 
+app_name = "fraud-output"
 
-# In[9]:
+default_output_file = "fraud-output-"
+default_output_prefix = ""
+default_input_prefix = ""
+default_output_mode = "overwrite"
+default_output_kind = "parquet"
+default_input_kind = "parquet"
 
+parser = parser = argparse.ArgumentParser()
+parser.add_argument('--output-file', help='base name for preprocessed output data (default="%s"; "interarrival" or "cleaned" will be appended)' % default_output_file, default=default_output_file)
+parser.add_argument('--output-mode', help='Spark data source output mode for the result (default: overwrite)', default=default_output_mode)
+parser.add_argument('--input-file', help='default input file (e.g., "fraud-raw.parquet"; the default is empty)', default="")
+parser.add_argument('--output-prefix', help='text to prepend to every output file basename (e.g., "hdfs:///fraud-processed-data"; the default is empty)', default=default_output_prefix)
+parser.add_argument('--output-kind', help='output Spark data source type for the result (default: parquet)', default=default_output_kind)
+parser.add_argument('--input-kind', help='Spark data source type for the input (default: parquet)', default=default_input_kind)
+parser.add_argument('--summary-prefix', help='text to prepend to analytic reports (e.g., "reports/"; default is empty)', default='')
+parser.add_argument('--report-file', help='location in which to store a performance report', default='report.txt')
+parser.add_argument('--log-level', help='set log level (default: OFF)', default="OFF")
+parser.add_argument('--coalesce-output', help='coalesce output to NUM partitions', default=0, type=int)
 
-# never computed; an option for comparison
+if __name__ == '__main__':
+    import pyspark
+    import os
 
-if False:
-    df_dist_unused = df_interarrival_train.        withColumn("amount_quantile",
-            F.cume_dist().over(
-                W.Window.partitionBy("user_id").orderBy("amount")
-            )
+    failed = False
+    
+    args = parser.parse_args()
+
+    session = pyspark.sql.SparkSession.builder \
+        .appName(app_name) \
+        .getOrCreate()
+
+    session.sparkContext.setLogLevel(args.log_level)
+
+    session
+
+    input_files = {k: "%s%s" % (args.input_prefix, v) for k, v in default_input_files.items()}
+
+    churn.etl.register_options(
+        app_name = app_name,
+        input_files = input_files,
+        output_prefix = args.output_prefix,
+        output_mode = args.output_mode,
+        output_kind = args.output_kind,
+        input_kind = args.input_kind,
+        output_file = args.output_file,
+        coalesce_output = args.coalesce_output,
+        use_calendar_arithmetic = args.use_calendar_arithmetic
+    )
+
+    df = read_df(session, args.input_file)
+
+    import timeit
+    
+    import pyspark.sql.window as W
+    import pyspark.sql.functions as F
+
+    interarrival_spec = W.Window.partitionBy("user_id").orderBy("timestamp")
+    overall_spec = W.Window.orderBy("timestamp")
+
+    df_interarrival = df.withColumn(
+        "previous_timestamp", 
+        F.lag(df["timestamp"]).over(
+            interarrival_spec
         )
+    ).withColumn(
+        "interarrival",
+        (F.col("timestamp") - F.col("previous_timestamp")).cast("int")
+    )
 
+    session.conf.set("spark.rapids.sql.castFloatToIntegralTypes.enabled", True)
 
-# In[14]:
+    amount_cents = (F.col("amount") * 100).cast("int")
 
-
-session.conf.set("spark.rapids.sql.castFloatToIntegralTypes.enabled", True)
-
-amount_cents = (F.col("amount") * 100).cast("int")
-
-rollingUserSpec =     W.Window.partitionBy("user_id").orderBy(
+    rollingUserSpec = W.Window.partitionBy("user_id").orderBy(
         F.col("timestamp")
     ).rowsBetween(
         -1000,
@@ -94,11 +142,11 @@ rollingUserSpec =     W.Window.partitionBy("user_id").orderBy(
     )
 
 
-userSpec =     W.Window.partitionBy("user_id").orderBy(
+    userSpec = W.Window.partitionBy("user_id").orderBy(
         amount_cents
     )
 
-toPresentUserSpec =     W.Window.partitionBy("user_id").orderBy(
+    toPresentUserSpec = W.Window.partitionBy("user_id").orderBy(
         F.col("timestamp")
     ).rowsBetween(
         W.Window.unboundedPreceding,
@@ -107,8 +155,7 @@ toPresentUserSpec =     W.Window.partitionBy("user_id").orderBy(
         amount_cents
     )
 
-
-rollingUserSpec =     W.Window.partitionBy("user_id").orderBy(
+    rollingUserSpec = W.Window.partitionBy("user_id").orderBy(
         F.col("timestamp")
     ).rowsBetween(
         -1000,
@@ -117,17 +164,11 @@ rollingUserSpec =     W.Window.partitionBy("user_id").orderBy(
         amount_cents
     )
 
-
-overallSpec =     W.Window.orderBy(
+    overallSpec = W.Window.orderBy(
         amount_cents
     )
 
-# not identical to cume_dist; this rank is the fraction of 
-# transactions that are strictly less than the current row
-
-# XXX:  need to censor overall and user-overall quantiles with train/test split
-
-df_dist = df_interarrival.    withColumn("amount_rank_user",
+    df_dist = df_interarrival.withColumn("amount_rank_user",
         (F.rank().over(userSpec) / 
          F.count("user_id").over(userSpec)).cast("float")
     ).withColumn("amount_rank_overall",
@@ -140,46 +181,35 @@ df_dist = df_interarrival.    withColumn("amount_rank_user",
          F.count("user_id").over(toPresentUserSpec)   
     )
 
+    df_out = df_dist.drop(
+        "previous_timestamp"
+    ).withColumn(
+        "amount", 
+        F.col("amount").cast("float")
+    ).withColumn(
+        "user_id", 
+        F.col("user_id").cast("int")
+    ).withColumn(
+        "merchant_id", 
+        F.col("merchant_id").cast("int")
+    )
 
-# In[13]:
+    interarrival_calc = timeit.timeit(lambda: write_df(df_interarrival, f"{options["output_file"]}-interarrival"), number=1)
+    quantile_calc = timeit.timeit(lambda: write_df(df_out, f"{options["output_file"]}-cleaned"), number=1)
 
+    first_line = "Completed payments fraud transaction preprocessing (version %s; %d transactions) \n" % (WORKLOAD_VERSION, df.count())
 
-df_dist.printSchema()
+    first_line += 'Calculating interarrival times took %.02f seconds\n' % interarrival_calc
+    first_line += 'Calculating transaction percentiles took %.02f seconds; configuration follows:\n\n' % quantile_calc
+    print(first_line)
 
-
-# In[ ]:
-
-
-df_out = df_dist.drop(
-    "previous_timestamp"
-).withColumn(
-    "amount", 
-    F.col("amount").cast("float")
-).withColumn(
-    "user_id", 
-    F.col("user_id").cast("int")
-).withColumn(
-    "merchant_id", 
-    F.col("merchant_id").cast("int")
-)
-
-
-# In[ ]:
-
-
-interarrival_calc = timeit.timeit(lambda: df_interarrival.write.parquet(f"fraud-interarrival-{output_ts}.parquet"), number=1)
-quantile_calc = timeit.timeit(lambda: df_out.write.parquet(f"fraud-cleaned-{output_ts}.parquet"), number=1)
-
-
-# In[ ]:
+    with open(args.report_file, "w") as report:
+        report.write(first_line + "\n")
+        for conf in session.sparkContext.getConf().getAll():
+            report.write(str(conf) + "\n")
+            print(conf)
+    
+    session.stop()    
 
 
-df_out.sample(fraction=0.05).write.parquet(f"fraud-cleaned-{output_ts}-sample.parquet")
-
-
-# In[ ]:
-
-
-print(f"time to compute interarrivals:  {interarrival_calc}")
-print(f"time to compute quantiles:  {quantile_calc}")
 

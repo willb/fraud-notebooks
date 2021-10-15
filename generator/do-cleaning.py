@@ -94,11 +94,8 @@ if __name__ == '__main__':
 
     session
 
-    input_files = {k: "%s%s" % (args.input_prefix, v) for k, v in default_input_files.items()}
-
     churn.etl.register_options(
         app_name = app_name,
-        input_files = input_files,
         output_prefix = args.output_prefix,
         output_mode = args.output_mode,
         output_kind = args.output_kind,
@@ -194,8 +191,8 @@ if __name__ == '__main__':
         F.col("merchant_id").cast("int")
     )
 
-    interarrival_calc = timeit.timeit(lambda: write_df(df_interarrival, f"{options["output_file"]}-interarrival"), number=1)
-    quantile_calc = timeit.timeit(lambda: write_df(df_out, f"{options["output_file"]}-cleaned"), number=1)
+    interarrival_calc = timeit.timeit(lambda: write_df(df_interarrival, "%s-interarrival" % options["output_file"]), number=1)
+    quantile_calc = timeit.timeit(lambda: write_df(df_out, "%s-cleaned" % options["output_file"]), number=1)
 
     first_line = "Completed payments fraud transaction preprocessing (version %s; %d transactions) \n" % (WORKLOAD_VERSION, df.count())
 

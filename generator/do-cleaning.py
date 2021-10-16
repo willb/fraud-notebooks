@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     session
 
-    churn.etl.register_options(
+    register_options(
         app_name = app_name,
         output_prefix = args.output_prefix,
         output_mode = args.output_mode,
@@ -102,18 +102,21 @@ if __name__ == '__main__':
         input_kind = args.input_kind,
         output_file = args.output_file,
         coalesce_output = args.coalesce_output,
-        use_calendar_arithmetic = args.use_calendar_arithmetic
     )
 
-    df = read_df(session, args.input_file)
 
     import timeit
     
     import pyspark.sql.window as W
     import pyspark.sql.functions as F
 
+    df = read_df(session, args.input_file)
+    tt_spec = W.Window.partitionBy(F.lit("")).orderBy("trans_type")
     interarrival_spec = W.Window.partitionBy("user_id").orderBy("timestamp")
     overall_spec = W.Window.orderBy("timestamp")
+
+    trans_types = df.select("trans_type").distinct().select(F.row_number().over(tt_spec).alias("index"), "trans_type")
+    df = df.join(trans_types, "trans_type").withColumn("trans_type_index", F.col("index")).drop("trans_type", "index")
 
     df_interarrival = df.withColumn(
         "previous_timestamp", 

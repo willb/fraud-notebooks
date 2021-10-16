@@ -117,6 +117,7 @@ if __name__ == '__main__':
 
     trans_types = df.select("trans_type").distinct().select(F.row_number().over(tt_spec).alias("index"), "trans_type")
     df = df.join(trans_types, "trans_type").withColumn("trans_type_index", F.col("index")).drop("trans_type", "index")
+    df = df.withColumn("amount", df["amount"].cast("float"))
 
     df_interarrival = df.withColumn(
         "previous_timestamp", 
